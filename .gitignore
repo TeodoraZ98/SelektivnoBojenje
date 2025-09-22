@@ -1,0 +1,11 @@
+*.exe
+*.dll
+*.pdb
+*.obj
+*.suo
+*.user
+*.vcxproj*
+*.sln
+x64/
+Debug/
+Release/
