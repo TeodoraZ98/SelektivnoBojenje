@@ -4,18 +4,16 @@
 using namespace cv;
 using namespace std;
 
-// Globalne promenljive
 Mat original, hsv, maska, rezultat, siva;
 Scalar selektovanaBoja;
-bool prozorOtvoren = false; // Flag za otvaranje drugog prozora
+bool prozorOtvoren = false; 
 
-// Funkcija za klik
+//funkcija za klik
 void onMouse(int event, int x, int y, int, void*)
 {
     if (event != EVENT_LBUTTONDOWN)
         return;
 
-    // Proveri granice slike
     int regionSize = 5;
     int half = regionSize / 2;
 
@@ -54,7 +52,7 @@ void onMouse(int event, int x, int y, int, void*)
     cvtColor(siva, rezultat, COLOR_GRAY2BGR);
     original.copyTo(rezultat, maska);
 
-    // Prikaži selektivno bojenje (otvori prozor ako nije već otvoren)
+    //prikazi selektivno bojenje 
     if (!prozorOtvoren) {
         namedWindow("Selektivno bojenje", WINDOW_NORMAL);
         resizeWindow("Selektivno bojenje", 600, 400);
@@ -66,18 +64,16 @@ void onMouse(int event, int x, int y, int, void*)
 
 int main()
 {
-    // Tačna putanja do slike (dvostruki \\ ili kosu crtu /)
-    original = imread("D:/Prebaceno iz C/Desktop/Diplomski/diplomski/x64/Debug/kuce.jpg");
+    original = imread("kuce.jpg");
 
     if (original.empty()) {
         cout << "Greška pri učitavanju slike. Proveri putanju." << endl;
         return -1;
     }
 
-    // Pretvori u HSV
     cvtColor(original, hsv, COLOR_BGR2HSV);
 
-    // Prikaži original
+    //prikazi original
     namedWindow("Originalna slika", WINDOW_NORMAL);
     resizeWindow("Originalna slika", 600, 400);
     setMouseCallback("Originalna slika", onMouse);
