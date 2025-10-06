@@ -1,87 +1,118 @@
 ﻿#include <opencv2/opencv.hpp>
-#include <iostream>
+#include "cvui.h"
+
+#define WINDOW_NAME "Meni"
+#define ORIGINAL_WINDOW "Original"
+#define RESULT_WINDOW "Rezultat"
 
 using namespace cv;
-using namespace std;
 
-Mat original, hsv, maska, rezultat, siva;
-Scalar selektovanaBoja;
-bool prozorOtvoren = false; 
+Mat originalImage, processedImage, resultImage;
+bool imageLoaded = false;
+bool processingActive = false;
+bool showResultWindow = false;
 
-//funkcija za klik
-void onMouse(int event, int x, int y, int, void*)
-{
-    if (event != EVENT_LBUTTONDOWN)
-        return;
+// Razmera za prikaz slike
+double scale = 0.5;
 
-    int regionSize = 5;
-    int half = regionSize / 2;
-
-    int hSum = 0, sSum = 0, vSum = 0, count = 0;
-
-    for (int i = -half; i <= half; ++i)
-    {
-        for (int j = -half; j <= half; ++j)
-        {
-            int px = x + j;
-            int py = y + i;
-
-            if (px >= 0 && px < hsv.cols && py >= 0 && py < hsv.rows)
-            {
-                Vec3b piksel = hsv.at<Vec3b>(py, px);
-                hSum += piksel[0];
-                sSum += piksel[1];
-                vSum += piksel[2];
-                count++;
-            }
-        }
+// Funkcija za učitavanje slike
+void openImage() {
+    originalImage = imread("kuce.jpg");
+    if (!originalImage.empty()) {
+        imageLoaded = true;
     }
-
-    int h = hSum / count;
-    int s = sSum / count;
-    int v = vSum / count;
-
-    selektovanaBoja = Scalar(h, s, v);
-
-    Scalar lower(h - 10, 50, 50);
-    Scalar upper(h + 10, 255, 255);
-
-    inRange(hsv, lower, upper, maska);
-
-    cvtColor(original, siva, COLOR_BGR2GRAY);
-    cvtColor(siva, rezultat, COLOR_GRAY2BGR);
-    original.copyTo(rezultat, maska);
-
-    //prikazi selektivno bojenje 
-    if (!prozorOtvoren) {
-        namedWindow("Selektivno bojenje", WINDOW_NORMAL);
-        resizeWindow("Selektivno bojenje", 600, 400);
-        prozorOtvoren = true;
+    else {
+        std::cout << "Greska pri ucitavanju slike!" << std::endl;
     }
-
-    imshow("Selektivno bojenje", rezultat);
 }
 
-int main()
-{
-    original = imread("kuce.jpg");
+// Funkcija za konverziju slike u grayscale
+void processImage() {
+    if (!imageLoaded) return;
+    Mat gray;
+    cvtColor(originalImage, gray, COLOR_BGR2GRAY);
+    cvtColor(gray, processedImage, COLOR_GRAY2BGR);
+    resultImage = processedImage.clone();
+    showResultWindow = true;
+}
 
-    if (original.empty()) {
-        cout << "Greška pri učitavanju slike. Proveri putanju." << endl;
-        return -1;
+// Klik na original -> selektivno bojenje
+void onMouseClick(int event, int x, int y, int flags, void* userdata) {
+    if (event == EVENT_LBUTTONDOWN && imageLoaded && processingActive) {
+        // Preračunaj klik na originalnu veličinu
+        int xFull = static_cast<int>(x / scale);
+        int yFull = static_cast<int>(y / scale);
+
+        Vec3b selectedColor = originalImage.at<Vec3b>(yFull, xFull);
+        int h, s, v;
+        Mat hsv;
+        cvtColor(originalImage, hsv, COLOR_BGR2HSV);
+        Vec3b hsvColor = hsv.at<Vec3b>(yFull, xFull);
+
+        Scalar lower(hsvColor[0] - 10, 50, 50);
+        Scalar upper(hsvColor[0] + 10, 255, 255);
+
+        Mat mask;
+        inRange(hsv, lower, upper, mask);
+
+        resultImage = processedImage.clone();
+        originalImage.copyTo(resultImage, mask);
+
+        // Prikaz smanjene slike
+        Mat prikaz;
+        resize(resultImage, prikaz, Size(), scale, scale);
+        imshow(RESULT_WINDOW, prikaz);
+    }
+}
+
+int main() {
+    cvui::init(WINDOW_NAME);
+    namedWindow(WINDOW_NAME);
+    resizeWindow(WINDOW_NAME, 300, 250);
+
+    while (true) {
+        Mat gui = Mat(250, 300, CV_8UC3, Scalar(50, 50, 50));
+
+        cvui::text(gui, 20, 20, "Izaberi opciju:");
+
+        if (cvui::button(gui, 20, 50, 200, 30, "Ucitaj sliku")) {
+            openImage();
+            if (imageLoaded) {
+                namedWindow(ORIGINAL_WINDOW);
+                Mat prikaz;
+                resize(originalImage, prikaz, Size(), scale, scale);
+                imshow(ORIGINAL_WINDOW, prikaz);
+            }
+        }
+
+        if (cvui::button(gui, 20, 90, 200, 30, "Procesuiraj")) {
+            processImage();
+            processingActive = true;
+            if (imageLoaded && showResultWindow) {
+                namedWindow(RESULT_WINDOW);
+                Mat prikaz;
+                resize(resultImage, prikaz, Size(), scale, scale);
+                imshow(RESULT_WINDOW, prikaz);
+                setMouseCallback(ORIGINAL_WINDOW, onMouseClick);
+            }
+        }
+
+        if (cvui::button(gui, 20, 130, 200, 30, "Sacuvaj rezultat")) {
+            if (!resultImage.empty()) {
+                imwrite("rezultat.jpg", resultImage);
+                std::cout << "Rezultat sacuvan kao rezultat.jpg" << std::endl;
+            }
+        }
+
+        if (cvui::button(gui, 20, 170, 200, 30, "Izlaz")) {
+            break;
+        }
+
+        cvui::imshow(WINDOW_NAME, gui);
+        int key = waitKey(20);
+        if (key == 27) break; // ESC za izlaz
     }
 
-    cvtColor(original, hsv, COLOR_BGR2HSV);
-
-    //prikazi original
-    namedWindow("Originalna slika", WINDOW_NORMAL);
-    resizeWindow("Originalna slika", 600, 400);
-    setMouseCallback("Originalna slika", onMouse);
-
-    imshow("Originalna slika", original);
-    cout << "Klikni na boju koju želiš da zadržiš.\n";
-
-    waitKey(0);
     destroyAllWindows();
     return 0;
 }
